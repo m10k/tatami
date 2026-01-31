@@ -1,0 +1,16 @@
+Source: tatami
+Priority: optional
+Maintainer: Matthias Kruk <m@m10k.eu>
+Build-Depends: debhelper (>= 9), make, coreutils, gcc, libxrandr-dev, libx11-dev
+Standards-Version: 3.9.8
+Section: x11
+Homepage: https://github.com/m10k/tatami
+
+Package: tatami
+Section: x11
+Architecture: any
+Depends: libc6, libxrandr2, libx11-6, ${shlibs:Depends}
+Description: An experimental, minimalist tiling window manager
+ Tatami is a minimalist tiling window manager with a focus
+ on simplicity and extensibility, providing the foundation
+ for an experimental desktop environment.
