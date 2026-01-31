@@ -1,4 +1,4 @@
-OUTPUT = wm
+OUTPUT = tatami
 OBJECTS = array.o client.o common.o dispatcher.o event.o log.o main.o monitor.o \
           set.o wm.o workspace.o xrandr.o
 
@@ -10,8 +10,8 @@ ifeq ($(MANPREFIX), )
 endif
 
 PKG_CONFIG_LIBS = xft pango pangoxft
-CFLAGS = -pedantic -Wall #$(shell pkg-config --cflags $(PKG_CONFIG_LIBS))
-LDFLAGS = -lX11 -lXrandr #$(shell pkg-config --libs $(PKG_CONFIG_LIBS))
+CFLAGS = -pedantic -Wall
+LDFLAGS = -lX11 -lXrandr
 
 PHONY = all clean install uninstall
 
@@ -22,16 +22,16 @@ else
 	CFLAGS += -O2
 endif
 
-all: wm
+all: $(OUTPUT)
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	install -oroot -groot -m755 wm $(DESTDIR)$(PREFIX)/bin
+	install -oroot -groot -m755 tatami $(DESTDIR)$(PREFIX)/bin
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/wm
+	rm -f $(DESTDIR)$(PREFIX)/bin/tatami
 
-wm: $(OBJECTS)
+$(OUTPUT): $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
