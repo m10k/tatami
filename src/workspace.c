@@ -1,0 +1,261 @@
+#include "common.h"
+#include "set.h"
+#include "workspace.h"
+#include <errno.h>
+#include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+struct workspace {
+	workspace_t id;
+	char *name;
+
+	client_t *clients;
+	int num_clients;
+	int focus;
+
+	struct {
+		workspace_call_t *func;
+		void *data;
+	} callbacks[WORKSPACE_EVENT_LAST];
+};
+
+static struct set *_workspaces = NULL;
+
+static inline int __init(void)
+{
+	return _workspaces ? 0 : set_new(&_workspaces);
+}
+
+static inline int __get_workspace(struct workspace **workspace, const workspace_t wid)
+{
+	int err;
+
+	if (wid < 0) {
+		return -EINVAL;
+	}
+
+	if ((err = set_get(_workspaces, wid, (void**)workspace)) < 0) {
+		return err;
+	}
+
+	if (!*workspace) {
+		return -EBADF;
+	}
+
+	return 0;
+}
+
+workspace_t workspace_new(void)
+{
+	struct workspace *space;
+	int err;
+
+	if ((err = __init()) < 0) {
+		return err;
+	}
+
+	if (!(space = calloc(1, sizeof(*space)))) {
+		return -ENOMEM;
+	}
+
+	if ((err = set_nq(_workspaces, space)) < 0) {
+		free(space);
+	} else {
+		space->id = (workspace_t)err;
+	}
+
+	return (workspace_t)err;
+}
+
+int workspace_free(const workspace_t wid)
+{
+	struct workspace *workspace;
+	int err;
+
+	if ((err = set_unset(_workspaces, wid, (void**)&workspace)) < 0) {
+		return err;
+	}
+
+	if (!workspace) {
+		return -EBADF;
+	}
+
+	free(workspace->clients);
+	free(workspace);
+
+	return 0;
+}
+
+static int workspace_insert_client(struct workspace *workspace, const client_t cid)
+{
+	client_t *new_clients;
+	int new_num_clients;
+
+	if (workspace->num_clients == INT_MAX) {
+		return -EOVERFLOW;
+	}
+
+	new_num_clients = workspace->num_clients + 1;
+	if ((SIZE_MAX / sizeof(client_t)) < new_num_clients) {
+		return -EOVERFLOW;
+	}
+
+	if (!(new_clients = realloc(workspace->clients,
+	                            sizeof(client_t) * new_num_clients))) {
+		return -ENOMEM;
+	}
+
+	new_clients[new_num_clients - 1] = cid;
+
+	workspace->clients = new_clients;
+	workspace->num_clients = new_num_clients;
+
+	return 0;
+}
+
+int workspace_attach_client(const workspace_t wid, const client_t cid)
+{
+	struct workspace *workspace;
+	int err;
+
+	if (!WORKSPACE_VALID(wid) || !CLIENT_VALID(cid)) {
+		return -EINVAL;
+	}
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	if ((err = workspace_insert_client(workspace, cid)) < 0) {
+		return err;
+	}
+
+	if (!err) {
+		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_ATTACHED, (void*)(ptrdiff_t)cid);
+		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_REORDERED, NULL);
+	}
+
+	return err;
+}
+
+static int workspace_remove_client(struct workspace *workspace, const client_t client)
+{
+	client_t *new_clients;
+	int new_num_clients;
+
+	int src_idx;
+	int dst_idx;
+	int rem_idx;
+
+	if (workspace->num_clients <= 0) {
+		return -ENOENT;
+	}
+
+	new_num_clients = workspace->num_clients - 1;
+
+	if (!(new_clients = malloc(new_num_clients * sizeof(client_t)))) {
+		return -ENOMEM;
+	}
+
+	for (src_idx = dst_idx = 0, rem_idx = -1; src_idx < workspace->num_clients; src_idx++) {
+		if (workspace->clients[src_idx] == client) {
+			rem_idx = src_idx;
+			continue;
+		}
+
+		new_clients[dst_idx] = workspace->clients[src_idx];
+		dst_idx++;
+	}
+
+	if (rem_idx < 0) {
+		free(new_clients);
+		return -ENOENT;
+	}
+
+#define IS_FIRST(idx)                    ((idx) == 0)
+#define IS_LAST(idx, size)               (((idx) + 1) == size)
+#define IS_CASE1(focused, removed)       (focused > removed)
+#define IS_CASE3(focused, removed, size) ((focused) == (removed) && IS_LAST(removed, size))
+
+	if (IS_CASE1(workspace->focus, rem_idx) ||
+	    IS_CASE3(workspace->focus, rem_idx, workspace->num_clients)) {
+		workspace->focus--;
+	}
+
+	free(workspace->clients);
+	workspace->clients = new_clients;
+	workspace->num_clients = new_num_clients;
+
+#undef IS_FIRST
+#undef IS_LAST
+#undef IS_CASE1
+#undef IS_CASE3
+
+	return 0;
+}
+
+int workspace_detach_client(const workspace_t wid, const client_t cid)
+{
+	struct workspace *workspace;
+	int err;
+
+	if (!CLIENT_VALID(cid)) {
+		return -EINVAL;
+	}
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	err = workspace_remove_client(workspace, cid);
+
+	if (!err) {
+		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_DETACHED, (void*)(ptrdiff_t)cid);
+	}
+
+	return err;
+}
+
+int workspace_set_callback(const workspace_t wid,
+                           const workspace_event_t event,
+                           workspace_call_t *func,
+                           void *data)
+{
+	struct workspace *workspace;
+	int err;
+
+	if (event < 0 || event >= WORKSPACE_EVENT_LAST) {
+		return -EINVAL;
+	}
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	workspace->callbacks[event].func = func;
+	workspace->callbacks[event].data = data;
+
+	return 0;
+}
+
+int workspace_notify(const workspace_t wid, const workspace_event_t event, void *context)
+{
+	struct workspace *workspace;
+	int err;
+
+	if (event < 0 || event >= WORKSPACE_EVENT_LAST) {
+		return -EINVAL;
+	}
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	if (workspace->callbacks[event].func) {
+		workspace->callbacks[event].func(wid, workspace->callbacks[event].data, context);
+	}
+
+	return 0;
+}
