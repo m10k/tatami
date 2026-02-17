@@ -25,7 +25,18 @@ static struct set *_workspaces = NULL;
 
 static inline int __init(void)
 {
-	return _workspaces ? 0 : set_new(&_workspaces);
+	int err;
+
+	if (_workspaces) {
+		return 0;
+	}
+
+	if ((err = set_new(&_workspaces)) < 0) {
+		return err;
+	}
+
+	/* allocate null workspace */
+	return (int)workspace_new();
 }
 
 static inline int __get_workspace(struct workspace **workspace, const workspace_t wid)
