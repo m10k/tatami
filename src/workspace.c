@@ -14,6 +14,7 @@ struct workspace {
 	client_t *clients;
 	int num_clients;
 	int focus;
+	monitor_t viewer;
 
 	struct {
 		workspace_call_t *func;
@@ -269,4 +270,35 @@ int workspace_notify(const workspace_t wid, const workspace_event_t event, void 
 	}
 
 	return 0;
+}
+
+int workspace_set_viewer(const workspace_t wid, const monitor_t viewer)
+{
+	struct workspace *workspace;
+	int err;
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	if (workspace->viewer == viewer) {
+		return -EALREADY;
+	}
+
+	workspace->viewer = viewer;
+	workspace_notify(wid, WORKSPACE_EVENT_VIEWER_CHANGED, (void*)&viewer);
+
+	return 0;
+}
+
+monitor_t workspace_get_viewer(const workspace_t wid)
+{
+	struct workspace *workspace;
+	int err;
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	return workspace->viewer;
 }

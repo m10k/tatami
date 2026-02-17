@@ -37,4 +37,7 @@ int workspace_notify(const workspace_t wid,
 
 int workspace_foreach(int(*func)(const workspace_t, void*), void *context);
 
+int workspace_set_viewer(const workspace_t wid, const monitor_t viewer);
+monitor_t workspace_get_viewer(const workspace_t wid);
+
 #endif /* WORKSPACE_H */
