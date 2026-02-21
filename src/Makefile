@@ -1,5 +1,5 @@
 OUTPUT = tatami
-OBJECTS = array.o client.o common.o dispatcher.o event.o log.o main.o monitor.o \
+OBJECTS = array.o client.o common.o dispatcher.o event.o layout.o log.o main.o monitor.o \
           set.o wm.o workspace.o xrandr.o
 
 ifeq ($(PREFIX), )
