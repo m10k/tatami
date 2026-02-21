@@ -17,6 +17,7 @@
 
 struct client_data {
 	Window window;
+	int mapped;
 };
 
 struct map_request_data {
@@ -1028,4 +1029,52 @@ int wm_run(void)
 	}
 
 	return err;
+}
+
+int wm_move_client(const client_t client, const struct geom pos)
+{
+	struct client_data *data;
+	int err;
+
+	if ((err = client_get_data(client, (void**)&data)) < 0) {
+		return err;
+	}
+
+	XMoveResizeWindow(_wm.display, data->window, pos.x, pos.y, pos.w, pos.h);
+
+	if (!data->mapped) {
+		XMapWindow(_wm.display, data->window);
+		data->mapped = 1;
+	}
+
+	return 0;
+}
+
+int wm_show_client(const client_t client)
+{
+	struct client_data *data;
+	int err;
+
+	if ((err = client_get_data(client, (void**)&data)) < 0) {
+		return err;
+	}
+
+	XMapWindow(_wm.display, data->window);
+	return 0;
+}
+
+int wm_hide_client(const client_t client)
+{
+	struct geom client_geom;
+	int err;
+
+	if ((err = client_get_geometry(client, &client_geom)) < 0) {
+		return err;
+	}
+
+	/* Move the client outside of the visible area */
+	client_geom.x = -2 * client_geom.w;
+	client_geom.y = -2 * client_geom.h;
+
+	return wm_move_client(client, client_geom);
 }
