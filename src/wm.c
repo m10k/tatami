@@ -553,8 +553,17 @@ static void _client_hidden(const client_t cid, void *data, void *context)
 
 }
 
+monitor_t wm_get_focused_monitor(void)
+{
+	return _wm.focused_monitor;
+}
+
 static void _client_attached(const client_t cid, void *data, void *context)
 {
+	monitor_t focused_monitor;
+	workspace_t focused_workspace;
+	int err;
+
 	client_call_t * const callbacks[CLIENT_EVENT_LAST] = {
 		_client_attached,
 		_client_detached,
@@ -571,7 +580,17 @@ static void _client_attached(const client_t cid, void *data, void *context)
 		client_set_callback(cid, event, callbacks[event], data);
 	}
 
-	/* TODO: Handle the event */
+	focused_monitor = wm_get_focused_monitor();
+	focused_workspace = monitor_get_workspace(focused_monitor);
+
+	if (!WORKSPACE_VALID(focused_workspace)) {
+		log_error("WM", "No workspace to attach client %ld to", cid);
+		return;
+	}
+
+	if ((err = workspace_attach_client(focused_workspace, cid)) < 0) {
+		log_error("WM", "workspace_attach_client: %s", strerror(-err));
+	}
 }
 
 static int attach_client(Window window)
