@@ -754,11 +754,26 @@ static void _monitor_detached(const monitor_t mid, struct wm *wm)
 
 static void _monitor_attached(const monitor_t mid, struct wm *wm)
 {
+	workspace_t unviewed;
+
 	monitor_set_callback(mid, MONITOR_EVENT_DETACHED,
 	                     (monitor_call_t*)_monitor_detached, wm);
 
+	unviewed = workspace_get_unviewed();
+	if (!WORKSPACE_VALID(unviewed)) {
+		unviewed = workspace_new();
+
+		if (!WORKSPACE_VALID(unviewed)) {
+			log_error("WM", "Could not find a workspace for monitor %ld", mid);
+			return;
+		}
+	}
+
+	monitor_set_workspace(mid, unviewed);
+
 	if (!MONITOR_VALID(wm->focused_monitor)) {
 		/* FIXME: set focused monitor */
+		wm->focused_monitor = mid;
 	}
 }
 
