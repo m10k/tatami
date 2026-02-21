@@ -1,6 +1,7 @@
 #include "common.h"
 #include "layout.h"
 #include "monitor.h"
+#include "workspace.h"
 #include "set.h"
 #include <errno.h>
 #include <stddef.h>
@@ -282,4 +283,55 @@ int monitor_foreach(int (*func)(const monitor_t, void*), void *context)
 	return set_foreach(_monitors,
 	                   (int(*)(void*, const int, void*))_monitor_foreach_call,
 	                   &args);
+}
+
+int monitor_set_workspace(const monitor_t mid, const workspace_t wid)
+{
+	struct monitor *monitor;
+	struct monitor *old_monitor;
+	monitor_t old_mid;
+	workspace_t old_wid;
+	int err;
+
+	/*
+	 * Assign the workspace with id `wid` to the monitor with id `mid`. The
+	 * workspace may already be assigned to another monitor, and the monitor
+	 * may already have another workspace assigned. In this case, we perform
+	 * a swap.
+	 */
+
+	if ((err = __get_monitor(&monitor, mid)) < 0) {
+		return err;
+	}
+
+	if (monitor->workspace == wid) {
+		return -EALREADY;
+	}
+
+	old_wid = monitor->workspace;
+	old_mid = workspace_get_viewer(wid);
+
+	if ((err = __get_monitor(&old_monitor, old_mid)) >= 0) {
+		old_monitor->workspace = old_wid;
+		monitor_notify(old_mid, MONITOR_EVENT_WORKSPACE_CHANGED, (void*)&old_wid);
+		workspace_set_viewer(old_wid, old_mid);
+	}
+
+	monitor->workspace = wid;
+	workspace_set_viewer(wid, mid);
+	monitor_notify(mid, MONITOR_EVENT_WORKSPACE_CHANGED, (void*)&wid);
+
+	return 0;
+}
+
+workspace_t monitor_get_workspace(const monitor_t mid)
+{
+	struct monitor *monitor;
+	int err;
+
+	if ((err = __get_monitor(&monitor, mid)) < 0) {
+		return err;
+	}
+
+	return monitor->workspace;
 }

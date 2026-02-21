@@ -6,6 +6,7 @@
 typedef enum {
 	MONITOR_EVENT_ATTACHED = 0,
 	MONITOR_EVENT_DETACHED,
+	MONITOR_EVENT_WORKSPACE_CHANGED,
 	MONITOR_EVENT_LAST
 } monitor_event_t;
 
@@ -18,9 +19,10 @@ typedef void (monitor_call_t)(const monitor_t, void*, void*);
 monitor_t monitor_new(const crtc_t crtc, const struct geom geom);
 int monitor_free(const monitor_t mid);
 
-int monitor_set_geometry(const monitor_t mod, const struct geom geom);
+int monitor_set_geometry(const monitor_t mid, const struct geom geom);
 int monitor_get_geometry(const monitor_t mid, struct geom *geom);
 
+int monitor_set_workspace(const monitor_t monitor, const workspace_t workspace);
 workspace_t monitor_get_workspace(const monitor_t monitor);
 
 monitor_t monitor_search(int (*cmp)(const monitor_t, void*, void*), void *data);
