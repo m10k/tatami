@@ -1,4 +1,5 @@
 #include "common.h"
+#include "layout.h"
 #include "monitor.h"
 #include "set.h"
 #include <errno.h>
@@ -10,6 +11,7 @@ struct monitor {
 	crtc_t crtc;
 	struct geom geom;
 	workspace_t workspace;
+	layout_t layout;
 
 	void *data;
 
@@ -77,6 +79,7 @@ monitor_t monitor_new(const crtc_t crtc, const struct geom geom)
 
 	monitor->crtc = crtc;
 	monitor->geom = geom;
+	monitor->layout = LAYOUT_TATE;
 
 	if ((err = set_nq(_monitors, monitor)) < 0) {
 		free(monitor);
