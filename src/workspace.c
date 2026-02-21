@@ -1,11 +1,16 @@
 #include "common.h"
+#include "layout.h"
+#include "log.h"
+#include "monitor.h"
 #include "set.h"
+#include "wm.h"
 #include "workspace.h"
 #include <errno.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 struct workspace {
 	workspace_t id;
@@ -59,6 +64,86 @@ static inline int __get_workspace(struct workspace **workspace, const workspace_
 	return 0;
 }
 
+static inline void _set_callback(struct workspace *workspace,
+                                 const workspace_event_t event,
+                                 workspace_call_t *func,
+                                 void *data)
+{
+	workspace->callbacks[event].func = func;
+	workspace->callbacks[event].data = data;
+}
+
+static int workspace_hide(const workspace_t wid)
+{
+	struct workspace *workspace;
+	int err;
+	int i;
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	for (i = 0; i < workspace->num_clients; i++) {
+		wm_hide_client(workspace->clients[i]);
+	}
+
+	return 0;
+}
+
+static void _workspace_viewer_changed(const workspace_t wid, void *null, monitor_t *viewer)
+{
+	if (MONITOR_VALID(*viewer)) {
+		workspace_hide(wid);
+	}
+}
+
+static void _workspace_rearrange(const workspace_t wid, void *null, void *context)
+{
+	struct workspace *workspace;
+	struct geom monitor_geom;
+	layout_t layout;
+	int i;
+	int err;
+
+	log_debug("WS", "Rearranging workspace %ld", wid);
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		log_error("WS", "Cannot rearrange invalid workspace %ld: %s",
+		          wid, strerror(-err));
+		return;
+	}
+
+	if (!MONITOR_VALID(workspace->viewer)) {
+		log_error("WM", "Cannot rearrange workspace %ld with invalid viewer",
+		          wid);
+		return;
+	}
+
+	if ((err = monitor_get_geometry(workspace->viewer, &monitor_geom)) < 0) {
+		log_error("WM", "Cannot rearrange workspace %ld. Could not get "
+		          "geometry of viewer %ld: %s", wid, workspace->viewer,
+		          strerror(-err));
+		return;
+	}
+
+	/* FIXME: Get viewer's layout algorithm */
+	layout = LAYOUT_TATE;
+
+	for (i = 0; i < workspace->num_clients; i++) {
+		struct geom client_geom;
+
+		err = layout_arrange(layout, i, workspace->num_clients, monitor_geom, &client_geom);
+		if (err < 0) {
+			log_error("WM", "Could not determine geometry for client: %s", strerror(-err));
+			break;
+		}
+
+		wm_move_client(workspace->clients[i], client_geom);
+	}
+
+	log_debug("WS", "Rearranged %d clients", workspace->num_clients);
+}
+
 workspace_t workspace_new(void)
 {
 	struct workspace *space;
@@ -76,6 +161,11 @@ workspace_t workspace_new(void)
 		free(space);
 	} else {
 		space->id = (workspace_t)err;
+
+		_set_callback(space, WORKSPACE_EVENT_VIEWER_CHANGED,
+		              (workspace_call_t*)_workspace_viewer_changed, NULL);
+		_set_callback(space, WORKSPACE_EVENT_CLIENT_REORDERED,
+		              (workspace_call_t*)_workspace_rearrange, NULL);
 	}
 
 	return (workspace_t)err;
@@ -148,6 +238,8 @@ int workspace_attach_client(const workspace_t wid, const client_t cid)
 		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_ATTACHED, (void*)(ptrdiff_t)cid);
 		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_REORDERED, NULL);
 	}
+
+	log_debug("WS", "Attached client %ld to workspace %ld\n", cid, wid);
 
 	return err;
 }
@@ -246,8 +338,7 @@ int workspace_set_callback(const workspace_t wid,
 		return err;
 	}
 
-	workspace->callbacks[event].func = func;
-	workspace->callbacks[event].data = data;
+	_set_callback(workspace, event, func, data);
 
 	return 0;
 }
