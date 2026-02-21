@@ -302,3 +302,12 @@ monitor_t workspace_get_viewer(const workspace_t wid)
 
 	return workspace->viewer;
 }
+static int _workspace_is_unviewed(struct workspace *workspace, void *data)
+{
+	return !MONITOR_VALID(workspace->viewer);
+}
+
+workspace_t workspace_get_unviewed(void)
+{
+	return set_search(_workspaces, (int(*)(void*, void*))_workspace_is_unviewed, NULL);
+}

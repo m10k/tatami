@@ -19,6 +19,7 @@ typedef void (workspace_call_t)(const workspace_t, void*, void*);
 #define WORKSPACE_VALID(w) ((w) >= 0)
 
 workspace_t workspace_new(void);
+workspace_t workspace_get_unviewed(void);
 int workspace_free(const workspace_t wid);
 
 int workspace_attach_client(const workspace_t wid,
