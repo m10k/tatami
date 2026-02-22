@@ -239,6 +239,7 @@ int workspace_attach_client(const workspace_t wid, const client_t cid)
 		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_REORDERED, NULL);
 	}
 
+	client_set_workspace(cid, wid);
 	log_debug("WS", "Attached client %ld to workspace %ld\n", cid, wid);
 
 	return err;
