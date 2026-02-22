@@ -31,6 +31,9 @@ int client_set_pointer(const client_t cid,
                        const struct geom pointer);
 int client_get_pointer(const client_t cid,
                        struct geom *pointer);
+int client_set_workspace(const client_t cid,
+                         const workspace_t workspace);
+workspace_t client_get_workspace(const client_t cid);
 
 int client_set_data(const client_t cid, void *data);
 int client_get_data(const client_t cid, void **data);

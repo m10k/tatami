@@ -12,6 +12,8 @@ struct client {
 	struct geom geom;
 	struct geom pointer;
 
+	workspace_t workspace;
+
 	void *data;
 
 	struct {
@@ -246,4 +248,29 @@ client_t client_search(int (*cmp)(const client_t, void*, void*), void *data)
 	args.data = data;
 
 	return set_search(_clients, (int(*)(void*, void*))_client_cmp_data, &args);
+}
+
+int client_set_workspace(const client_t cid, const workspace_t workspace)
+{
+	struct client *client;
+	int err;
+
+	if ((err = __get_client(&client, cid)) < 0) {
+		return err;
+	}
+
+	client->workspace = workspace;
+	return 0;
+}
+
+workspace_t client_get_workspace(const client_t cid)
+{
+	struct client *client;
+	int err;
+
+	if ((err = __get_client(&client, cid)) < 0) {
+		return err;
+	}
+
+	return client->workspace;
 }
