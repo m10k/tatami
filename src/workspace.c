@@ -317,6 +317,7 @@ int workspace_detach_client(const workspace_t wid, const client_t cid)
 	err = workspace_remove_client(workspace, cid);
 
 	if (!err) {
+		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_REORDERED, NULL);
 		workspace_notify(wid, WORKSPACE_EVENT_CLIENT_DETACHED, (void*)(ptrdiff_t)cid);
 	}
 
