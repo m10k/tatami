@@ -510,7 +510,13 @@ static int _event_mapping_notify_handler(struct event *event)
 
 static void _client_detached(const client_t cid, void *data, void *context)
 {
-	/* TODO: Handle the event */
+	workspace_t workspace;
+
+	workspace = client_get_workspace(cid);
+
+	if (WORKSPACE_VALID(workspace)) {
+		workspace_detach_client(workspace, cid);
+	}
 }
 
 static void _client_geometry_changed(const client_t cid, void *data,
