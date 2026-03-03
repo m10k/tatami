@@ -1,4 +1,5 @@
 #include "array.h"
+#include "cmd.h"
 #include "common.h"
 #include "log.h"
 #include "event.h"
@@ -6,14 +7,18 @@
 #include "client.h"
 #include "monitor.h"
 #include "set.h"
+#include "unix.h"
 #include "wm.h"
 #include "xrandr.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>
 #include <sys/epoll.h>
+
+#define CMD_SOCKET_PATH "/tmp/tatami.sock"
 
 struct client_data {
 	Window window;
@@ -37,6 +42,7 @@ struct wm {
 	struct eventq eventq;
 
 	struct xrandr *xrandr;
+	int cmdsock;
 };
 
 static struct wm _wm;
@@ -679,6 +685,8 @@ static int _event_unmap_notify_handler(struct event *event)
 	client = event->data.unmap_notify.client;
 
 	if (CLIENT_VALID(client)) {
+		log_info("WM", "Detaching client %ld", client);
+
 		XGrabServer(_wm.display);
 		XSync(_wm.display, False);
 
@@ -697,6 +705,50 @@ static int _event_unmap_notify_handler(struct event *event)
 	}
 
 	return 0;
+}
+
+void cmdsock_read(int fd, dispatcher_event_t events, void *data)
+{
+	struct cmd cmd;
+	int rxbytes;
+	int err;
+
+	rxbytes = unix_socket_read(fd, (unsigned char*)&cmd, sizeof(cmd));
+
+	if (rxbytes < 0) {
+		err = -errno;
+		log_error("CMD", "Could not read command from client %d: %s", fd, strerror(-err));
+	} else if (rxbytes == 0) {
+		log_info("CMD", "Connection %d closed", fd);
+		unix_socket_close(fd);
+	} else if (rxbytes != sizeof(cmd)) {
+		log_error("CMD", "Received command from %d with invalid length %d (expected %d)",
+		          fd, rxbytes, sizeof(cmd));
+	} else {
+		log_info("CMD", "Received command %d from %d\n", cmd.opcode, fd);
+	}
+}
+
+void cmdsock_accept(int fd, dispatcher_event_t events, void *data)
+{
+	struct wm *wm;
+	int client;
+	int err;
+
+	wm = (struct wm*)data;
+
+	if ((client = unix_socket_accept(fd)) < 0) {
+		log_error("CMD", "Could not accept connection: %s", strerror(-client));
+	} else {
+		err = dispatcher_watch_fd(wm->dispatcher, client, cmdsock_read, wm);
+
+		if (err < 0) {
+			log_error("CMD", "Could not add client %d to dispatcher: %s",
+			          client, strerror(-err));
+
+			close(client);
+		}
+	}
 }
 
 /*
@@ -1013,6 +1065,12 @@ int wm_init(void)
 	if (err < 0) {
 		/* FIXME: Clean up */
 	}
+
+	if ((_wm.cmdsock = unix_server_new(CMD_SOCKET_PATH)) < 0) {
+		return _wm.cmdsock;
+	}
+
+	err = dispatcher_watch_fd(_wm.dispatcher, _wm.cmdsock, cmdsock_accept, &_wm);
 
 	err = dispatcher_watch_fd(_wm.dispatcher, ConnectionNumber(_wm.display),
 	                          enqueue_xevents, &_wm);
