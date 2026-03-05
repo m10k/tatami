@@ -2,11 +2,13 @@
 #define MONITOR_H
 
 #include "common.h"
+#include "layout.h"
 
 typedef enum {
 	MONITOR_EVENT_ATTACHED = 0,
 	MONITOR_EVENT_DETACHED,
 	MONITOR_EVENT_WORKSPACE_CHANGED,
+	MONITOR_EVENT_LAYOUT_CHANGED,
 	MONITOR_EVENT_LAST
 } monitor_event_t;
 
@@ -21,6 +23,9 @@ int monitor_free(const monitor_t mid);
 
 int monitor_set_geometry(const monitor_t mid, const struct geom geom);
 int monitor_get_geometry(const monitor_t mid, struct geom *geom);
+
+layout_t monitor_get_layout(const monitor_t mid);
+int      monitor_set_layout(const monitor_t mid, const layout_t layout);
 
 int monitor_set_workspace(const monitor_t monitor, const workspace_t workspace);
 workspace_t monitor_get_workspace(const monitor_t monitor);

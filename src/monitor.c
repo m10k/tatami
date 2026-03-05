@@ -335,3 +335,34 @@ workspace_t monitor_get_workspace(const monitor_t mid)
 
 	return monitor->workspace;
 }
+
+layout_t monitor_get_layout(const monitor_t mid)
+{
+	struct monitor *monitor;
+	int err;
+
+	if ((err = __get_monitor(&monitor, mid)) < 0) {
+		return err;
+	}
+
+	return monitor->layout;
+}
+
+int monitor_set_layout(const monitor_t mid, const layout_t layout)
+{
+	struct monitor *monitor;
+	int err;
+
+	if (layout < 0 || layout >= LAYOUT_LAST) {
+		return -EINVAL;
+	}
+
+	if ((err = __get_monitor(&monitor, mid)) < 0) {
+		return err;
+	}
+
+	monitor->layout = layout;
+	monitor_notify(mid, MONITOR_EVENT_LAYOUT_CHANGED, (void*)&layout);
+
+	return 0;
+}
