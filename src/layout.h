@@ -9,6 +9,8 @@ typedef enum {
 	LAYOUT_LAST
 } layout_t;
 
+#define LAYOUT_VALID(l) ((l) >= 0 && (l) < LAYOUT_LAST)
+
 int layout_arrange(const layout_t layout,
                    const int client,
                    const int num_clients,
