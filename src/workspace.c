@@ -404,3 +404,52 @@ workspace_t workspace_get_unviewed(void)
 {
 	return set_search(_workspaces, (int(*)(void*, void*))_workspace_is_unviewed, NULL);
 }
+
+int workspace_get_focus(const workspace_t wid)
+{
+	struct workspace *workspace;
+	int err;
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	return workspace->focus;
+}
+
+int workspace_set_focus(const workspace_t wid, const int focus)
+{
+	struct workspace *workspace;
+	int err;
+	int effective_focus;
+
+	if ((err = __get_workspace(&workspace, wid)) < 0) {
+		return err;
+	}
+
+	if (workspace->num_clients == 0) {
+		return -ERANGE;
+	}
+
+	/* ensure that the new focus is within the bounds of the array */
+	effective_focus = focus;
+	while (effective_focus < 0) {
+		effective_focus += workspace->num_clients;
+	}
+	effective_focus = effective_focus % workspace->num_clients;
+
+	if (effective_focus != workspace->focus) {
+		client_t old_client;
+		client_t new_client;
+
+		old_client = workspace->clients[workspace->focus];
+		workspace->focus = effective_focus;
+		new_client = workspace->clients[workspace->focus];
+
+		client_notify(old_client, CLIENT_EVENT_FOCUS_LOST, NULL);
+		workspace_notify(wid, WORKSPACE_EVENT_FOCUS_CHANGED, NULL);
+		client_notify(new_client, CLIENT_EVENT_FOCUS_GAINED, NULL);
+	}
+
+	return 0;
+}

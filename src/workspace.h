@@ -43,4 +43,7 @@ int workspace_foreach(int(*func)(const workspace_t, void*), void *context);
 int workspace_set_viewer(const workspace_t wid, const monitor_t viewer);
 monitor_t workspace_get_viewer(const workspace_t wid);
 
+int workspace_get_focus(const workspace_t wid);
+int workspace_set_focus(const workspace_t wid, const int focus);
+
 #endif /* WORKSPACE_H */
